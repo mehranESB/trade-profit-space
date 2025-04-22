@@ -12,8 +12,9 @@ maker = SpaceMaker(df_source, max_holds=15)
 
 # get a sample space
 space = maker[111]
-space.plot_price_range(chandle=True)
-space.plot_profit_space()
+# space.plot_price_range(chandle=True)
+# space.plot_profit_space()
+space.plot_map_targets()
 plt.show()
 
 bom = 1

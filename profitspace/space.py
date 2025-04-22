@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MplPolygon
 
 # constant as infinity
-INF = 0.1
+INF = 10
 
 
 class SpaceMaker:
@@ -109,13 +109,13 @@ class ProfitSpace:
                 points.append((hh[i], ll[i]))
             else:
                 # Create a right-angle (90-degree) path to avoid ambiguity
-                points.append((hh[i], ll[i - 1]))
+                points.append((hh[i - 1], ll[i]))
                 points.append((hh[i], ll[i]))
 
         # Close the polygon path
-        points.append((INF, ll[-1]))
-        points.append((INF, 0.0))
-        points.append((hh[0], 0.0))
+        points.append((hh[-1], -INF))
+        points.append((0.0, -INF))
+        points.append((0.0, ll[0]))
 
         # Store the region as a Polygon
         self.buyreg = Polygon(points)
@@ -140,13 +140,13 @@ class ProfitSpace:
                 points.append((hh[i], ll[i]))
             else:
                 # Create a right-angle (90-degree) path to avoid ambiguity
-                points.append((hh[i - 1], ll[i]))
+                points.append((hh[i], ll[i - 1]))
                 points.append((hh[i], ll[i]))
 
         # Close the polygon path
-        points.append((hh[-1], -INF))
-        points.append((0.0, -INF))
-        points.append((0.0, ll[0]))
+        points.append((INF, ll[-1]))
+        points.append((INF, 0.0))
+        points.append((hh[0], 0.0))
 
         # Store the region as a Polygon
         self.sellreg = Polygon(points)
@@ -288,3 +288,72 @@ class ProfitSpace:
         ax.set_title("Profit Space")
         ax.legend()
         ax.grid(True)
+
+    def plot_map_targets(self):
+        fig, (ax_left, ax_right) = plt.subplots(1, 2)
+
+        self.plot_price_range(ax_left, chandle=True)
+        self.plot_profit_space(ax_right)
+
+        # Horizontal lines on ax_left
+        utline = ax_left.axhline(y=self.exeprice, color="red", linestyle="--")
+        ltline = ax_left.axhline(y=self.exeprice, color="blue", linestyle="--")
+
+        # Middle x-coordinate of ax_left for annotation placement
+        xlim = ax_left.get_xlim()
+        mid_x = (xlim[0] + xlim[1]) / 2
+
+        # Annotations that follow the lines
+        ut_annot = ax_left.text(
+            mid_x,
+            self.exeprice,
+            "Upper Target",
+            ha="center",
+            va="bottom",
+            color="red",
+            fontsize=9,
+            bbox=dict(facecolor="white", alpha=0.6),
+        )
+        lt_annot = ax_left.text(
+            mid_x,
+            self.exeprice,
+            "Lower Target",
+            ha="center",
+            va="top",
+            color="blue",
+            fontsize=9,
+            bbox=dict(facecolor="white", alpha=0.6),
+        )
+
+        # Crosshair lines in ax_right
+        vline_cross = ax_right.axvline(color="gray", linestyle="--")
+        hline_cross = ax_right.axhline(color="gray", linestyle="--")
+
+        def on_move(event):
+            if (
+                event.inaxes == ax_right
+                and event.xdata is not None
+                and event.ydata is not None
+            ):
+                ut = max(event.xdata, 0.0)
+                lt = min(event.ydata, 0.0)
+
+                # Update target lines in ax_left
+                new_ut_y = self.exeprice + ut
+                new_lt_y = self.exeprice + lt
+                utline.set_ydata([new_ut_y] * 2)
+                ltline.set_ydata([new_lt_y] * 2)
+
+                # Update annotation positions
+                xlim = ax_left.get_xlim()
+                mid_x = (xlim[0] + xlim[1]) / 2
+                ut_annot.set_position((mid_x, new_ut_y))
+                lt_annot.set_position((mid_x, new_lt_y))
+
+                # Update crosshair in ax_right
+                vline_cross.set_xdata([event.xdata] * 2)
+                hline_cross.set_ydata([event.ydata] * 2)
+
+                fig.canvas.draw_idle()
+
+        fig.canvas.mpl_connect("motion_notify_event", on_move)
