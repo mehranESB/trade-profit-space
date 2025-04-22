@@ -1,5 +1,5 @@
 from .utils import plot_bar_chart
-from shapely import contains
+from shapely import contains, covers
 from shapely.geometry import Point, Polygon
 import pandas as pd
 import numpy as np
@@ -454,11 +454,9 @@ class ProfitSpace:
             raise ValueError("All input lists must be of equal length.")
 
         # Convert to relative space points
-        exeprice = self.exeprice
-        points = [
-            Point(ut - exeprice, lt - exeprice)
-            for ut, lt in zip(upper_targets, lower_targets)
-        ]
+        UT = np.array(upper_targets) - self.exeprice
+        LT = np.array(lower_targets) - self.exeprice
+        points = [Point(ut, lt) for ut, lt in zip(UT, LT)]
 
         # Vectorized region checks
         in_buy_reg = contains(self.buyreg, points)
@@ -471,3 +469,61 @@ class ProfitSpace:
         ]
 
         return list(map(bool, results))
+
+    def get_region(self, upper_target: float, lower_target: float):
+        """
+        Determines which region a trade falls into based on the upper and lower targets.
+
+        Parameters:
+        - upper_target (float): The target price for exiting the trade in above of execution price (open[0]).
+        - lower_target (float): The target price for exiting the trade in below of execution price (open[0]).
+
+        Returns:
+        - str: One of ["unknown", "buy", "sell", "expire", "invalid"]
+        """
+
+        ut = upper_target - self.exeprice
+        lt = lower_target - self.exeprice
+        point = Point(ut, lt)
+
+        if self.unkreg.covers(point):  # In the unknown region
+            return "unknown"
+        elif self.buyreg.covers(point):  # In the buy profit region
+            return "buy"
+        elif self.sellreg.covers(point):  # In the sell profit region
+            return "sell"
+        elif self.expreg.covers(point):  # In the expiration region
+            return "expire"
+        else:  # Outside any defined region
+            return "invalid"
+
+    def get_regions(self, upper_targets: list[float], lower_targets: list[float]):
+        """
+        Efficiently determine the region for a list of (upper_target, lower_target) points.
+
+        Parameters:
+        - upper_targets: List of upper target prices
+        - lower_targets: List of lower target prices
+
+        Returns:
+        - List of region names (same length as inputs)
+        """
+
+        UT = np.array(upper_targets) - self.exeprice
+        LT = np.array(lower_targets) - self.exeprice
+        points = [Point(ut, lt) for ut, lt in zip(UT, LT)]
+
+        results = np.full(len(points), "invalid", dtype=object)
+
+        # Check each region efficiently
+        mask_unk = covers(self.unkreg, points)
+        mask_buy = covers(self.buyreg, points)
+        mask_sell = covers(self.sellreg, points)
+        mask_exp = covers(self.expreg, points)
+
+        results[mask_unk] = "unknown"
+        results[mask_buy] = "buy"
+        results[mask_sell] = "sell"
+        results[mask_exp] = "expire"
+
+        return results.tolist()
