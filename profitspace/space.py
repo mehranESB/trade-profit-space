@@ -1,4 +1,5 @@
 from .utils import plot_bar_chart
+from shapely import contains
 from shapely.geometry import Point, Polygon
 import pandas as pd
 import numpy as np
@@ -356,7 +357,7 @@ class ProfitSpace:
         ut_annot = ax_left.text(
             mid_x,
             self.exeprice,
-            "Upper Target",
+            f"Upper Target: {self.exeprice}",
             ha="center",
             va="bottom",
             color="red",
@@ -366,7 +367,7 @@ class ProfitSpace:
         lt_annot = ax_left.text(
             mid_x,
             self.exeprice,
-            "Lower Target",
+            f"Lower Target: {self.exeprice}",
             ha="center",
             va="top",
             color="blue",
@@ -393,11 +394,13 @@ class ProfitSpace:
                 utline.set_ydata([new_ut_y] * 2)
                 ltline.set_ydata([new_lt_y] * 2)
 
-                # Update annotation positions
+                # Update annotation positions and value
                 xlim = ax_left.get_xlim()
                 mid_x = (xlim[0] + xlim[1]) / 2
                 ut_annot.set_position((mid_x, new_ut_y))
                 lt_annot.set_position((mid_x, new_lt_y))
+                ut_annot.set_text(f"Upper Target: {new_ut_y:.5f}")
+                lt_annot.set_text(f"Lower Target: {new_lt_y:.5f}")
 
                 # Update crosshair in ax_right
                 vline_cross.set_xdata([event.xdata] * 2)
@@ -406,3 +409,65 @@ class ProfitSpace:
                 fig.canvas.draw_idle()
 
         fig.canvas.mpl_connect("motion_notify_event", on_move)
+
+    def check_trade(
+        self, otype: str = "buy", upper_target: float = INF, lower_target: float = INF
+    ):
+        """
+        Checks whether a trade (buy or sell) would succeed given the upper and lower targets.
+
+        Parameters:
+        - otype (str): "buy" or "sell" to specify trade direction.
+        - upper_target (float): The price target for taking profit.
+        - lower_target (float): The price threshold for stop loss.
+
+        Returns:
+        - bool: True if the trade would succeed, False otherwise.
+        """
+        # Convert targets to coordinates relative to execution price
+        ut = upper_target - self.exeprice
+        lt = lower_target - self.exeprice
+        point = Point(ut, lt)
+
+        if otype == "buy":
+            return self.buyreg.contains(point)
+        elif otype == "sell":
+            return self.sellreg.contains(point)
+        else:
+            raise ValueError("Invalid trade type. Must be 'buy' or 'sell'.")
+
+    def check_trades(
+        self, otypes: list[str], upper_targets: list[float], lower_targets: list[float]
+    ):
+        """
+        Vectorized check for multiple trades to determine which are successful.
+
+        Parameters:
+        - otypes (list[str]): List of trade types, either "buy" or "sell".
+        - upper_targets (list[float]): Corresponding upper targets (take profit).
+        - lower_targets (list[float]): Corresponding lower targets (stop loss).
+
+        Returns:
+        - list[bool]: True if the trade would succeed (hit target within the region), else False.
+        """
+        if not (len(otypes) == len(upper_targets) == len(lower_targets)):
+            raise ValueError("All input lists must be of equal length.")
+
+        # Convert to relative space points
+        exeprice = self.exeprice
+        points = [
+            Point(ut - exeprice, lt - exeprice)
+            for ut, lt in zip(upper_targets, lower_targets)
+        ]
+
+        # Vectorized region checks
+        in_buy_reg = contains(self.buyreg, points)
+        in_sell_reg = contains(self.sellreg, points)
+
+        # Determine result per type
+        results = [
+            in_buy_reg[i] if typ == "buy" else in_sell_reg[i]
+            for i, typ in enumerate(otypes)
+        ]
+
+        return list(map(bool, results))
