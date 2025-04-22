@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MplPolygon
 
 # constant as infinity
-INF = 10
+INF = 1e5
 
 
 class SpaceMaker:
@@ -190,10 +190,48 @@ class ProfitSpace:
         # Store the polygon
         self.unkreg = Polygon(full_points)
 
+    def define_expire_region(self):
+        """
+        Defines the 'expiration region' in profit space, representing trades that reach
+        the maximum hold time without triggering profit or stop conditions.
+
+        The region starts at the last (hh, ll) point and extends infinitely to the right
+        and downward, forming an open-ended rectangle.
+
+        Stores the result in self.expreg as a shapely Polygon.
+        """
+        hh = self.hh - self.exeprice
+        ll = self.ll - self.exeprice
+
+        # Use the last bar's hh and ll values
+        end_hh = hh[-1]
+        end_ll = ll[-1]
+
+        # Create polygon points going clockwise
+        points = [
+            (end_hh, end_ll),  # bottom-left corner
+            (INF, end_ll),  # bottom-right
+            (INF, -INF),  # far bottom-right
+            (end_hh, -INF),  # far bottom-left
+        ]
+
+        # Create and store the expiration region polygon
+        self.expreg = Polygon(points)
+
     def define_regions(self):
+        """
+        Defines all strategic regions in the profit space:
+        - Buy region (self.buyreg)
+        - Sell region (self.sellreg)
+        - Unknown/ambiguous region (self.unkreg)
+        - Expiration region (self.expreg)
+
+        Each region is stored as a Shapely Polygon object.
+        """
         self.define_buy_region()
         self.define_sell_region()
         self.define_unknown_region()
+        self.define_expire_region()
 
     def plot_price_range(self, ax=None, chandle: bool = False):
         """
@@ -273,6 +311,17 @@ class ProfitSpace:
             label="Unknown Region",
         )
         ax.add_patch(unkreg_patch)
+
+        # Plot Expiration Region
+        expreg_patch = MplPolygon(
+            list(self.expreg.exterior.coords),
+            closed=True,
+            facecolor="silver",
+            edgecolor="black",
+            alpha=0.5,
+            label="Expire Region",
+        )
+        ax.add_patch(expreg_patch)
 
         # Axis limits
         max_xlim = max(self.hh - self.exeprice)
