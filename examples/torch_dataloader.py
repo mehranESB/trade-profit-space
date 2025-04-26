@@ -8,18 +8,14 @@ import numpy as np
 def custom_collate_fn(batch):
     ohlc = [item["ohlc"] for item in batch]
     spaces = [item["space"] for item in batch]
-    return {"ohlc": torch.tensor(ohlc), "space": spaces}  # Keep as list of objects
+    return {
+        "ohlc": torch.tensor(ohlc),
+        "space": spaces,
+    }  # Keep spaces as list of objects
 
 
 class MyCustomDataset(Dataset):
-    def __init__(self, pkl_path: str | Path, seq_len: int = 128):
-        """
-        Custom PyTorch dataset for ProfitSpace-based market data.
-
-        Parameters:
-        - pkl_path (str or Path): Path to the saved .pkl dataset.
-        - seq_len (int): Length of the input sequence (in number of candles).
-        """
+    def __init__(self, pkl_path: str, seq_len: int = 128):
         self.data = load_dataset(pkl_path)
         self.market_data = self.data["df_source"]
         self.profit_spaces = self.data["profit_spaces"]
@@ -54,10 +50,6 @@ loader = DataLoader(dataset, batch_size=2, collate_fn=custom_collate_fn)
 # retrieve batch of data
 for batch in loader:
     ohlc, space = batch["ohlc"], batch["space"]
-
-    # Now ohlc is a tensor of shape (batch_size, seq_len, 4)
-    print(f"OHLC batch shape: {ohlc.shape}")
-    print(f"Space batch: {space}")
 
     # # Example usage as per your commented code
     # upper_target, lower_target = get_desired_targets(ohlc)  # Get upper and lower targets based on the OHLC data

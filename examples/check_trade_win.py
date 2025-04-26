@@ -1,7 +1,6 @@
 from profitspace.space import SpaceMaker
 from pathlib import Path
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # import financial market data
 csv_file_path = Path("./DATA/csv/EURUSD-1h.csv")
