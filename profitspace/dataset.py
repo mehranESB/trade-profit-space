@@ -2,6 +2,7 @@ from .space import SpaceMaker
 import pandas as pd
 from pathlib import Path
 import pickle
+from tqdm import tqdm
 
 
 def save_dataset(market_data: pd.DataFrame, save_path: str, max_holds: int = 15):
@@ -18,11 +19,16 @@ def save_dataset(market_data: pd.DataFrame, save_path: str, max_holds: int = 15)
     if save_path.suffix != ".pkl":
         raise ValueError("save_path must end with '.pkl'")
 
+    # Create parent directories if they don't exist
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
     # Create SpaceMaker object from market data
     smaker = SpaceMaker(market_data, max_holds)
 
     # Generate a ProfitSpace object for each candle/bar
-    profit_spaces = [smaker[i] for i in range(len(market_data))]
+    profit_spaces = [
+        smaker[i] for i in tqdm(range(len(market_data)), desc="Creating ProfitSpaces")
+    ]
 
     # Package everything into a dictionary
     packed_data = {
@@ -34,6 +40,7 @@ def save_dataset(market_data: pd.DataFrame, save_path: str, max_holds: int = 15)
     # Save to pickle
     with open(save_path, "wb") as file:
         pickle.dump(packed_data, file)
+    print(f"Dataset successfully saved to {save_path}")
 
 
 def load_dataset(save_path: str):
