@@ -11,10 +11,8 @@ df_source = pd.read_csv(csv_file_path)
 maker = SpaceMaker(df_source, max_holds=15)
 
 # get a sample space
-space = maker[111]
+space = maker[273]
 
 # visualize
 space.plot_map_targets()
 plt.show()
-
-bom = 1
